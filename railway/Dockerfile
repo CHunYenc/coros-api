@@ -30,7 +30,9 @@ COPY patches ./patches
 RUN pnpm install --frozen-lockfile --prod
 
 FROM node:${NODE_VERSION}-alpine AS runtime
-RUN apk add --no-cache rclone
+# coreutils replaces busybox's `date`, which doesn't support the `-d`
+# relative-date syntax entrypoint.sh relies on (e.g. `-d "-3 days"`).
+RUN apk add --no-cache rclone coreutils
 WORKDIR /app
 ENV NODE_ENV=production
 

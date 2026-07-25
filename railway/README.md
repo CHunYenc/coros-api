@@ -31,6 +31,10 @@ instead of a mounted `rclone.conf` file (Railway has no persistent host file to 
 Optional:
 
 - `DRIVE_REMOTE` — defaults to `gdrive:coros-exports`, override to change the target remote/folder.
+- `LOOKBACK_DAYS` — defaults to `3`. Each run only exports activities from the last N days (via `--fromDate`/
+  `--toDate`) instead of your full history, since the job runs daily. The default gives a couple of days of
+  overlap as a safety net in case a run is missed or fails — `rclone copy` skips files already on Drive, so the
+  overlap doesn't cause duplicate uploads, just a bit of re-fetching from the Coros API.
 
 ### Generating `RCLONE_CONFIG_GDRIVE_TOKEN`
 

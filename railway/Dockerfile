@@ -35,10 +35,6 @@ FROM node:${NODE_VERSION}-alpine AS runtime
 RUN apk add --no-cache rclone coreutils
 WORKDIR /app
 ENV NODE_ENV=production
-# rclone.conf lives on a Railway Volume mounted at /config/rclone so OAuth
-# token refreshes persist across cron runs.
-ENV RCLONE_CONFIG=/config/rclone/rclone.conf
-
 
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist

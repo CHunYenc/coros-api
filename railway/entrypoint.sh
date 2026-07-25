@@ -11,12 +11,19 @@ DRIVE_REMOTE="${DRIVE_REMOTE:-gdrive:coros-exports}"
 # rclone copy skips files already on Drive, so overlap is free.
 LOOKBACK_DAYS="${LOOKBACK_DAYS:-3}"
 
-# Persist rclone.conf (incl. refreshed OAuth tokens) on a Railway Volume
-# mounted at /config/rclone. Env vars only seed the file on first run.
-RCLONE_CONFIG_DIR="/config/rclone"
-RCLONE_CONFIG="${RCLONE_CONFIG:-$RCLONE_CONFIG_DIR/rclone.conf}"
+# Persist rclone.conf (incl. refreshed OAuth tokens) on the Railway Volume.
+# Prefer Railway's injected mount path so a mis-matched dashboard mount still works.
+RCLONE_CONFIG_DIR="${RAILWAY_VOLUME_MOUNT_PATH:-/config/rclone}"
+RCLONE_CONFIG="${RCLONE_CONFIG_DIR}/rclone.conf"
 export RCLONE_CONFIG
+
+if [ -z "${RAILWAY_VOLUME_MOUNT_PATH:-}" ]; then
+  echo "ERROR: RAILWAY_VOLUME_MOUNT_PATH is unset — attach a Volume (mount /config/rclone) to this service." >&2
+  exit 1
+fi
+
 mkdir -p "$RCLONE_CONFIG_DIR"
+echo "[$(date -Iseconds)] rclone config: $RCLONE_CONFIG (volume=$RAILWAY_VOLUME_MOUNT_PATH, exists=$( [ -f "$RCLONE_CONFIG" ] && echo yes || echo no ))"
 
 bootstrap_rclone_conf() {
   if [ -z "${RCLONE_CONFIG_GDRIVE_TOKEN:-}" ]; then
@@ -56,7 +63,9 @@ echo "[$(date -Iseconds)] Exporting activities from $FROM_DATE to $TO_DATE into 
 node dist/main export-activities --fromDate "$FROM_DATE" --toDate "$TO_DATE" --out "$EXPORT_DIR"
 
 echo "[$(date -Iseconds)] Uploading to $DRIVE_REMOTE..."
-rclone copy "$EXPORT_DIR" "$DRIVE_REMOTE" -v
+# Pass --config explicitly so a missing/ignored RCLONE_CONFIG env cannot fall back
+# to rclone's default /root/.config/rclone/rclone.conf.
+rclone copy "$EXPORT_DIR" "$DRIVE_REMOTE" --config "$RCLONE_CONFIG" -v
 
 echo "[$(date -Iseconds)] Cleaning up..."
 rm -rf "${EXPORT_DIR:?}"/*

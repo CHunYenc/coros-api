@@ -20,6 +20,9 @@ service with mount path:
 /config/rclone
 ```
 
+Railway injects `RAILWAY_VOLUME_MOUNT_PATH` at runtime; the entrypoint uses that directory for `rclone.conf`
+(so if you mounted elsewhere, it still follows the volume). Without a volume attached the job exits early.
+
 The entrypoint writes `rclone.conf` there on first run (seeded from env) and lets rclone update the token in
 place on later runs.
 

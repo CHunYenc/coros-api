@@ -1,6 +1,7 @@
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Test } from '@nestjs/testing';
 import { HttpResponse, http } from 'msw';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -12,6 +13,7 @@ import { COROS_API_BASE_URL, server } from '../testing/msw-server';
 import { ExportActivitiesCommandRunner } from './export-activities.command-runner';
 
 const FILE_CONTENT = 'fake-fit-file-content';
+const sampleFitPath = path.join(fileURLToPath(import.meta.url), '../../testing/fixtures/20260501174139.fit');
 
 function loginHandler() {
   return http.post(`${COROS_API_BASE_URL}/account/login`, () => {
@@ -62,6 +64,31 @@ describe('export-activities', () => {
 
     await moduleRef.close();
   }
+
+  it('renames .fit exports to the device local timestamp', async () => {
+    const fileUrl = `${COROS_API_BASE_URL}/files/activity-abc123.fit`;
+    const fitContent = await readFile(sampleFitPath);
+
+    server.use(
+      loginHandler(),
+      http.get(`${COROS_API_BASE_URL}/activity/query`, () => {
+        return HttpResponse.json(buildQueryActivitiesResponse());
+      }),
+      http.post(`${COROS_API_BASE_URL}/activity/detail/download`, () => {
+        return HttpResponse.json(buildDownloadActivityDetailResponse(fileUrl));
+      }),
+      fileDownloadHandler(fileUrl, fitContent),
+    );
+
+    await runCommand({});
+
+    const files = await readdir(tmpDir);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toBe('20260501174139.fit');
+
+    const content = await readFile(path.join(tmpDir, files[0]));
+    expect(content.equals(fitContent)).toBe(true);
+  });
 
   it('exports a single activity file to disk', async () => {
     const fileUrl = `${COROS_API_BASE_URL}/files/activity-abc123.fit`;

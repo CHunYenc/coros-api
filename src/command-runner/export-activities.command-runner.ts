@@ -1,13 +1,19 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { Logger } from '@nestjs/common';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import { Command, CommandRunner, Option } from 'nest-commander';
 import { DownloadFile } from '../core/download-file.service';
 import { InvalidParameterError } from '../core/invalid-parameter-error';
 import { parseDate } from '../core/parse-date';
 import { parseOutDir } from '../core/parse-out-dir';
+import { readFitLocalTimestamp } from '../core/read-fit-local-timestamp';
 import { CorosAPI } from '../coros/coros-api';
 import { DefaultFileType, FileTypeKeys, getFileTypeFromKey, isValidFileTypeKey } from '../coros/file-type';
 import { DefaultSportType, getSportTypeValueFromKey, isValidSportTypeKey, SportTypeKeys } from '../coros/sport-type';
+
+dayjs.extend(utc);
 
 type FileTypeFlag = { key: string; value: string };
 type SportTypesFlag = string[];
@@ -66,6 +72,7 @@ export class ExportActivitiesCommandRunner extends CommandRunner {
           fileType: fileType.value,
         });
         await this.downloadFileCommand.handle(fileUrl, outDir, fileName);
+        await this.renameToDeviceTimestamp(outDir, fileName, fileType.key);
         this.logger.debug(`Downloading ${fileName} success`);
       } catch (error) {
         failedDownloads += 1;
@@ -76,6 +83,28 @@ export class ExportActivitiesCommandRunner extends CommandRunner {
     if (failedDownloads > 0) {
       this.logger.error(`${failedDownloads} of ${activitiesToDownload.length} downloads failed`);
       process.exitCode = 1;
+    }
+  }
+
+  /**
+   * Coros historically named exported .fit files after the device's local recording time (e.g.
+   * `20260501174139.fit`). Restore that scheme by reading the timestamp back out of the
+   * downloaded file. Falls back to leaving the original name untouched for non-fit exports or if
+   * the timestamp can't be parsed.
+   */
+  private async renameToDeviceTimestamp(outDir: string, fileName: string, fileTypeKey: string): Promise<void> {
+    if (fileTypeKey !== 'fit') return;
+
+    const filePath = path.join(outDir, fileName);
+    const localTimestamp = readFitLocalTimestamp(await fs.readFile(filePath));
+    if (!localTimestamp) {
+      this.logger.warn(`Could not read local_timestamp from ${fileName}, keeping original file name`);
+      return;
+    }
+
+    const targetPath = path.join(outDir, `${dayjs.utc(localTimestamp).format('YYYYMMDDHHmmss')}.fit`);
+    if (targetPath !== filePath) {
+      await fs.rename(filePath, targetPath);
     }
   }
 

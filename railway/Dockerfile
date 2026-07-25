@@ -2,6 +2,11 @@
 # Combined image for Railway: runs the export, then uploads the result to
 # Google Drive with rclone, all in a single Cron Job service (Railway cron
 # jobs don't support chaining "service A then service B").
+#
+# No RUN --mount=type=cache here: Railway's builder requires cache mount IDs
+# to be prefixed with a hardcoded `s/<railway-service-id>-`, which would tie
+# this file to one specific service. Railway still caches image layers
+# between builds without it.
 
 ARG NODE_VERSION=24.18.0
 
@@ -12,8 +17,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches ./patches
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY tsconfig.json nest-cli.json ./
@@ -23,8 +27,7 @@ RUN pnpm build
 FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches ./patches
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod
 
 FROM node:${NODE_VERSION}-alpine AS runtime
 RUN apk add --no-cache rclone

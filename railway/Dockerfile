@@ -20,7 +20,7 @@ COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
-COPY tsconfig.json nest-cli.json ./
+COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 RUN pnpm build
 

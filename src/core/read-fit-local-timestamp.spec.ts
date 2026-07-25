@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readFitLocalTimestamp } from './read-fit-local-timestamp';
 
-const sampleFitPath = path.join(import.meta.dirname, '../testing/fixtures/20260501174139.fit');
+const sampleFitPath = path.join(process.cwd(), 'src/testing/fixtures/20260501174139.fit');
 
 describe('readFitLocalTimestamp', () => {
   it('reads local_timestamp from a Coros-exported FIT file', async () => {

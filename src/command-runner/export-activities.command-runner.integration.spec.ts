@@ -1,7 +1,6 @@
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Test } from '@nestjs/testing';
 import { HttpResponse, http } from 'msw';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -13,7 +12,7 @@ import { COROS_API_BASE_URL, server } from '../testing/msw-server';
 import { ExportActivitiesCommandRunner } from './export-activities.command-runner';
 
 const FILE_CONTENT = 'fake-fit-file-content';
-const sampleFitPath = path.join(fileURLToPath(import.meta.url), '../../testing/fixtures/20260501174139.fit');
+const sampleFitPath = path.join(process.cwd(), 'src/testing/fixtures/20260501174139.fit');
 
 function loginHandler() {
   return http.post(`${COROS_API_BASE_URL}/account/login`, () => {
@@ -21,7 +20,7 @@ function loginHandler() {
   });
 }
 
-function fileDownloadHandler(url: string, content = FILE_CONTENT) {
+function fileDownloadHandler(url: string, content: string | Buffer = FILE_CONTENT) {
   return http.get(url, () => {
     return new HttpResponse(content, {
       headers: { 'Content-Type': 'application/octet-stream' },
